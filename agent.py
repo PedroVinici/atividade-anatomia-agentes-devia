@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+from datetime import datetime
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -36,6 +37,20 @@ If no action is needed, respond in plain prose.
 YOU_COLOR = "\u001b[94m"
 ASSISTANT_COLOR = "\u001b[93m"
 RESET_COLOR = "\u001b[0m"
+
+LOG_FILE = Path(__file__).resolve().parent / "log.md"
+
+
+def log_event(event: str, data: Any):
+    """Acrescenta um registro legível sem apagar execuções anteriores."""
+    content = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, indent=2)
+    fence = "```"
+    while fence in content:
+        fence += "`"
+    with LOG_FILE.open("a", encoding="utf-8") as log:
+        log.write(f"\n## {datetime.now().isoformat(timespec='seconds')} — {event}\n\n")
+        log.write(f"{fence}text\n{content}\n{fence}\n")
+
 
 def resolve_abs_path(path_str: str) -> Path:
     """
@@ -159,9 +174,16 @@ def execute_llm_call(conversation: List[Dict[str, str]]):
         messages=conversation,
         max_completion_tokens=2000
     )
-    return response.choices[0].message.content
+    log_event("LLM RAW RESPONSE", response.model_dump(mode="json"))
+    message = response.choices[0].message
+    content = message.content or ""
+    thought = f"Texto completo do modelo:\n{content}"
+    log_event("Thought", thought)
+    return content
 
 def run_coding_agent_loop():
+    log_event("Nova execução", "Início do agente")
+    iteration = 0
     print(get_full_system_prompt())
     conversation = [{
         "role": "system",
@@ -172,21 +194,30 @@ def run_coding_agent_loop():
             user_input = input(f"{YOU_COLOR}You:{RESET_COLOR}:")
         except (KeyboardInterrupt, EOFError):
             break
+        log_event("User", user_input)
         conversation.append({
             "role": "user",
             "content": user_input.strip()
         })
         while True:
-            assistant_response = execute_llm_call(conversation)
+            iteration += 1
+            log_event(f"Iteração {iteration}", "Chamada ao modelo")
+            try:
+                assistant_response = execute_llm_call(conversation)
+            except Exception as error:
+                log_event("Erro na chamada ao modelo", f"{type(error).__name__}: {error}")
+                raise
+            conversation.append({
+                "role": "assistant",
+                "content": assistant_response
+            })
             tool_invocations = extract_tool_invocations(assistant_response)
             if not tool_invocations:
                 print(f"{ASSISTANT_COLOR}Assistant:{RESET_COLOR}: {assistant_response}")
-                conversation.append({
-                    "role": "assistant",
-                    "content": assistant_response
-                })
+                log_event("Resposta final", assistant_response)
                 break
             for name, args in tool_invocations:
+                log_event("Action", {"tool": name, "arguments": args})
                 tool = TOOL_REGISTRY[name]
                 resp = ""
                 print(name, args)
@@ -198,9 +229,11 @@ def run_coding_agent_loop():
                     resp = tool(args.get("path", "."),
                                 args.get("old_str", ""),
                                 args.get("new_str", ""))
+                observation = f"tool_result({json.dumps(resp)})"
+                log_event("Observation", observation)
                 conversation.append({
                     "role": "user",
-                    "content": f"tool_result({json.dumps(resp)})"
+                    "content": observation
                 })
 
 
