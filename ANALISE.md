@@ -398,5 +398,5 @@ def apply_discount(price, percent):
 Agora `apply_discount(200, 10)` retorna `180`, como o teste espera.
 ````
 
->>Aqui tem justamente a finalização de um loop, apenas com o histórico de interações com o modelo ele pode inferir que finalizou a task passada originalmente e não respondeu com nenhuma tool calling, finalizando o loop. Eh bem claro que isso não significa que o problema esta de fato resolvido até a propia resposta que ele deu eh um pouco duvidosa "Agora `apply_discount(200, 10)` retorna `180`, como o teste espera." Como ele pode ter certeza disso mesmo que não tenha executado nenhum teste? Aqui seria justamente um ponto ideial de utilização de um guardrail que induza o modelo a testar se oque ele fez esta de fato correto.
+>>Aqui tem justamente a finalização de um loop, apenas com o histórico de interações com o modelo ele inferiu que finalizou a task passada originalmente e não respondeu com nenhuma tool calling, finalizando o loop. Eh bem claro que isso não significa que o problema esta de fato resolvido até a propia resposta que ele deu eh um pouco duvidosa "Agora `apply_discount(200, 10)` retorna `180`, como o teste espera." Como ele pode ter certeza disso mesmo que não tenha executado nenhum teste? Aqui seria justamente um ponto ideial de utilização de um guardrail que induza o modelo a testar se oque ele fez esta de fato correto.
 ````
